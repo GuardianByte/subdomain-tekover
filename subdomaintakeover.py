@@ -1,4 +1,20 @@
 import boto3
+import requests
+import os
+
+SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL')
+
+def send_slack_notification(message):
+    if SLACK_WEBHOOK_URL:
+        payload = {"text": message}
+        try:
+            response = requests.post(SLACK_WEBHOOK_URL, json=payload)
+            if response.status_code != 200:
+                print(f"Failed to send Slack notification: {response.text}")
+        except Exception as e:
+            print(f"Error sending notification to Slack: {e}")
+    else:
+        print("Slack Webhook URL not set. Notification skipped.")
 
 def get_hosted_zone_records(zone_id):
     route53 = boto3.client('route53')
@@ -21,7 +37,9 @@ def validate_alias_record(record):
             existing_elbs = [lb['DNSName'] for lb in response['LoadBalancers']]
             
             if dns_name not in existing_elbs:
-                print(f"Dangling Alias Record Detected: {record['Name']} -> {dns_name}")
+                message = f"Dangling Alias Record Detected: {record['Name']} -> {dns_name}"
+                print(message)
+                send_slack_notification(message)
     except Exception as e:
         print(f"Error validating Alias record: {e}")
 
@@ -35,7 +53,9 @@ def validate_a_record(record):
             
             for ip in ip_addresses:
                 if ip not in active_ips:
-                    print(f"Dangling A Record Detected: {record['Name']} -> {ip}")
+                    message = f"Dangling A Record Detected: {record['Name']} -> {ip}"
+                    print(message)
+                    send_slack_notification(message)
     except Exception as e:
         print(f"Error validating A record: {e}")
 
